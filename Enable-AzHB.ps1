@@ -27,10 +27,17 @@ foreach ($row in $data) {
   # get current sub of the CLI
   $curSub = (Get-AzContext).Subscription.Name
   if ($curSub -ne $row.Subscription) {
-    Set-AzContext -Subscription $row.Subscription
+    try {
+      Set-AzContext -Subscription $row.Subscription  
+    }
+    catch {
+      $rowData | Add-Member -NotePropertyName "Result" -NotePropertyValue "Unable to set CLI subscription to $($row.Subscription)"
+      Continue
+    }
   }
 
-  # get vm data, if LicenseType Attribute is not defined then set else skip to next row
+  # get vm data
+  # if failed to get vm then skip to the next row
   try {
     $vmData = Get-AzVM -ResourceGroupName $row.ResourceGroup -Name $row.VmName  
   }
@@ -40,6 +47,7 @@ foreach ($row in $data) {
     continue
   }
 
+  # if LicenseType Attribute is not defined then set else skip to next row
   if (($vmData.LicenseType -eq '') -or ($vmData.LicenseType -eq $null)) {
     $vmData.LicenseType = "Windows_Server"
     try {
@@ -58,5 +66,6 @@ foreach ($row in $data) {
     $rowData | Add-Member -NotePropertyName "Result" -NotePropertyValue $true
     $rowData | Export-Csv -Path $resultFile.FullName -NoTypeInformation -Append -Force
     $rowData
+    continue
   }
 }
