@@ -32,6 +32,7 @@ foreach ($row in $data) {
     }
     catch {
       $rowData | Add-Member -NotePropertyName "Result" -NotePropertyValue "Unable to set CLI subscription to $($row.Subscription)"
+      $rowData
       Continue
     }
   }
