@@ -16,13 +16,11 @@ $data = Import-Csv -Path $FilePath
 # loop through each row
 foreach ($row in $data) {
   # put row's data into object for export to result file
-  Write-Host "Updating AHUB for VM: $($row.VmName)"
-  $rowData = [PSCustomObject]@{
+    $rowData = [PSCustomObject]@{
     VmName = $row.VmName
     ResourceGroup = $row.ResourceGroup
     Subscription = $row.Subscription
   }
-  $rowData
 
   # get current sub of the CLI
   $curSub = (Get-AzContext).Subscription.Name
@@ -40,10 +38,17 @@ foreach ($row in $data) {
   # get vm data
   # if failed to get vm then skip to the next row
   try {
-    $vmData = Get-AzVM -ResourceGroupName $row.ResourceGroup -Name $row.VmName  
+    $vmData = Get-AzVM -ResourceGroupName $row.ResourceGroup -Name $row.VmName 
   }
   catch {
     $rowData | Add-Member -NotePropertyName "Result" -NotePropertyValue "VM $($row.VmName) not exist in $($row.ResourceGroup)"
+    $rowData
+    continue
+  }
+
+  # check if vm is windows or not
+  if ($vmData.StorageProfile.osDisk.OsType -ne "Windows") {
+    $rowData | Add-Member -NotePropertyName "Result" -NotePropertyValue "VM $($row.VmName) OS is $($vmData.StorageProfile.osDisk.OsType)"
     $rowData
     continue
   }
@@ -52,7 +57,7 @@ foreach ($row in $data) {
   if (($vmData.LicenseType -eq '') -or ($vmData.LicenseType -eq $null)) {
     $vmData.LicenseType = "Windows_Server"
     try {
-      Update-AzVM -ResourceGroupName $row.ResourceGroup -VM $row.VmName -ErrorAction Stop
+      Update-AzVM -ResourceGroupName $row.ResourceGroup -VM $vmData -ErrorAction Stop
       $rowData | Add-Member -NotePropertyName "Result" -NotePropertyValue $true
       $rowData | Export-Csv -Path $resultFile.FullName -NoTypeInformation -Append -Force
       $rowData
